@@ -679,6 +679,8 @@ a{color:inherit;}
   flex-direction:column;
   gap:6px;
   padding:0;
+  justify-content:center;
+  align-items:center;
 }
 .champion-slot .team-chip .flag{
   width:62px;
@@ -1662,10 +1664,6 @@ a{color:inherit;}
     <svg class="heart-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10.2-9.1C0.1 8.8 1.3 5 5 4.2c2.1-0.5 4 0.5 5 2.2 1-1.7 2.9-2.7 5-2.2 3.7 0.8 4.9 4.6 3.2 7.7C19.5 16.4 12 21 12 21z"></path></svg>
     <span>MADE BY</span>
     <a href="https://www.linkedin.com/in/helloabir/" target="_blank" rel="noopener noreferrer">ABIR</a>
-    <span class="footer-divider"></span>
-    <a href="https://github.com/helloabir/wc2026-knockout-predictor" target="_blank" rel="noopener noreferrer" aria-label="View project on GitHub">
-      <svg class="gh-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0.3a12 12 0 0 0-3.8 23.4c0.6 0.1 0.8-0.3 0.8-0.6v-2.2c-3.3 0.7-4-1.6-4-1.6-0.6-1.4-1.4-1.8-1.4-1.8-1.1-0.8 0.1-0.7 0.1-0.7 1.2 0.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 0.1-0.8 0.4-1.3 0.8-1.6-2.7-0.3-5.5-1.3-5.5-5.9 0-1.3 0.5-2.4 1.2-3.2-0.1-0.3-0.5-1.5 0.1-3.2 0 0 1-0.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2 0.7 1.7 0.2 2.9 0.1 3.2 0.8 0.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9 0.4 0.4 0.8 1.1 0.8 2.2v3.3c0 0.3 0.2 0.7 0.8 0.6A12 12 0 0 0 12 0.3z"></path></svg>
-    </a>
   </div>
 </footer>
 
@@ -1760,22 +1758,22 @@ a{color:inherit;}
   // Round of 32 matches, in official bracket order (Match 73 -> 88).
   // Each entry: [teamIdTop, teamIdBottom]
   const ROUND_OF_32 = [
-    ["t01","t02"], // M73 South Africa vs Canada
-    ["t03","t04"], // M74-side... (kept simple left-to-right pairing for the 16 on-screen matches)
-    ["t05","t06"],
-    ["t07","t08"],
-    ["t09","t10"],
-    ["t11","t12"],
-    ["t13","t14"],
-    ["t15","t16"],
-    ["t17","t18"],
-    ["t19","t20"],
-    ["t21","t22"],
-    ["t23","t24"],
-    ["t25","t26"],
-    ["t27","t28"],
-    ["t29","t30"],
-    ["t31","t32"]
+    ["t01","t02"], // 1.  South Africa vs Canada
+    ["t07","t08"], // 2.  Netherlands  vs Morocco
+    ["t05","t06"], // 3.  Germany      vs Paraguay
+    ["t11","t12"], // 4.  France       vs Sweden
+    ["t17","t18"], // 5.  Belgium      vs Senegal
+    ["t15","t16"], // 6.  United States vs Bosnia and Herzegovina
+    ["t21","t23"], // 7.  Spain        vs Austria
+    ["t29","t30"], // 8.  Portugal     vs Croatia
+    ["t03","t04"], // 9.  Brazil       vs Japan
+    ["t09","t10"], // 10. Ivory Coast  vs Norway
+    ["t13","t14"], // 11. Mexico       vs Ecuador
+    ["t31","t32"], // 12. England      vs DR Congo
+    ["t25","t24"], // 13. Switzerland  vs Algeria
+    ["t27","t28"], // 14. Colombia     vs Ghana
+    ["t20","t19"], // 15. Australia    vs Egypt
+    ["t26","t22"]  // 16. Argentina    vs Cape Verde
   ];
 
   // Round definitions: id, label, number of matches, whether teams start pre-filled
@@ -2037,7 +2035,7 @@ a{color:inherit;}
 
     const label = document.createElement("div");
     label.className = "champion-label";
-    label.textContent = champTeam ? "🏆 "+TEAMS[champTeam].name : "World Cup Winner";
+    label.textContent = champTeam ? "🏆 "+TEAMS[champTeam].name : "FIFA WORLD CUP 2026 CHAMPION";
     stage.appendChild(label);
 
     col.appendChild(stage);
@@ -2319,7 +2317,45 @@ a{color:inherit;}
   // ---- Export to PNG (canvas-based renderer, framework-free) ----
   // We draw a clean, shareable summary card rather than rasterizing the
   // live DOM (which keeps it reliable across browsers with no extra libs).
-  function buildExportCanvas(){
+
+  // Cache of preloaded flag images (teamId -> HTMLImageElement) for canvas drawing.
+  const FLAG_IMAGE_CACHE = {};
+
+  function getFlagSpriteDefsInner(){
+    const el = document.querySelector(".flag-sprite-defs");
+    return el ? el.innerHTML : "";
+  }
+
+  function loadFlagImage(teamId){
+    if(FLAG_IMAGE_CACHE[teamId]) return Promise.resolve(FLAG_IMAGE_CACHE[teamId]);
+    const t = TEAMS[teamId];
+    if(!t || !EMBEDDED_FLAG_CODES.has(t.code)) return Promise.resolve(null);
+    const defs = getFlagSpriteDefsInner();
+    // Standalone SVG that inlines the full sprite defs and references the
+    // requested flag — needed because <use> can't resolve cross-document refs
+    // once the SVG is serialized into a data URL for canvas drawing.
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '+
+      'viewBox="0 0 4 3" preserveAspectRatio="xMidYMid meet" width="120" height="90">'+
+      defs +
+      '<use href="#flag-'+t.code+'" xlink:href="#flag-'+t.code+'"/>'+
+      '</svg>';
+    const url = "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+    return new Promise((resolve)=>{
+      const img = new Image();
+      img.onload = ()=>{ FLAG_IMAGE_CACHE[teamId] = img; resolve(img); };
+      img.onerror = ()=>resolve(null);
+      img.src = url;
+    });
+  }
+
+  function preloadAllFlagsForExport(){
+    const ids = new Set();
+    Object.values(state.slots).forEach(v=>{ if(v) ids.add(v); });
+    return Promise.all(Array.from(ids).map(loadFlagImage));
+  }
+
+  function buildExportCanvas(predictorName){
     const cols = ROUNDS.length + 1; // + champion
     const colWidth = 260;
     const rowHeight = 56;
@@ -2360,6 +2396,15 @@ a{color:inherit;}
     ctx.fillStyle = "#f2c14e";
     ctx.font = "700 16px 'Space Grotesk', sans-serif";
     ctx.fillText(champText, 24, 96);
+
+    // Predicted-by line (only when the user supplied a name)
+    if(predictorName){
+      ctx.fillStyle = "#aab4c8";
+      ctx.font = "600 14px 'Inter', sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("Predicted by: " + predictorName, canvasWidth - 24, 46);
+      ctx.textAlign = "left";
+    }
 
     // round columns
     const startY = headerHeight;
@@ -2406,13 +2451,40 @@ a{color:inherit;}
 
       if(teamId){
         const t = TEAMS[teamId];
+        // Draw the flag image (preloaded) — falls back to a [code] badge
+        // if loading failed for any reason.
+        const flagH = isChampion ? 36 : 18;
+        const flagW = Math.round(flagH * 4/3);
+        const flagY = yTop + (slotH - flagH)/2;
+        const flagX = x + 10;
+        const flagImg = FLAG_IMAGE_CACHE[teamId];
+        let textX = flagX;
+        if(flagImg){
+          ctx.save();
+          roundRect(ctx, flagX, flagY, flagW, flagH, 3);
+          ctx.clip();
+          ctx.drawImage(flagImg, flagX, flagY, flagW, flagH);
+          ctx.restore();
+          ctx.strokeStyle = "rgba(255,255,255,0.18)";
+          ctx.lineWidth = 1;
+          roundRect(ctx, flagX, flagY, flagW, flagH, 3);
+          ctx.stroke();
+          textX = flagX + flagW + 8;
+        }else{
+          ctx.fillStyle = "#aab4c8";
+          ctx.font = "700 10px 'JetBrains Mono', monospace";
+          ctx.textAlign = "left";
+          ctx.fillText("["+t.code.toUpperCase()+"]", flagX, yTop+slotH/2+4);
+          textX = flagX + 40;
+        }
         ctx.fillStyle = "#f5f7fb";
         ctx.font = (isChampion?"700 14px":"600 12px")+" 'Inter', sans-serif";
         ctx.textAlign = "left";
-        ctx.fillText(flagEmojiOrCode(t), x+10, yTop+slotH/2+4);
+        ctx.fillText(t.name, textX, yTop+slotH/2+4);
       }else{
         ctx.fillStyle = "#4b5571";
         ctx.font = "400 11px 'Inter', sans-serif";
+        ctx.textAlign = "left";
         ctx.fillText("— empty —", x+10, yTop+slotH/2+4);
       }
     }
@@ -2428,12 +2500,6 @@ a{color:inherit;}
     }
   }
 
-  function flagEmojiOrCode(team){
-    // Canvas can't reliably render external SVG flags inline without async
-    // image loads; we use the country code badge + name for crisp, fast export.
-    return "[" + team.code.toUpperCase() + "]  " + team.name;
-  }
-
   function roundRect(ctx, x, y, w, h, r){
     ctx.beginPath();
     ctx.moveTo(x+r, y);
@@ -2444,14 +2510,26 @@ a{color:inherit;}
     ctx.closePath();
   }
 
-  function exportPNGDataURL(){
-    const canvas = buildExportCanvas();
+  async function exportPNGDataURL(predictorName){
+    await preloadAllFlagsForExport();
+    const canvas = buildExportCanvas(predictorName);
     return canvas.toDataURL("image/png");
   }
 
-  document.getElementById("btn-download").addEventListener("click", ()=>{
+  function askPredictorName(){
+    // Lightweight, dependency-free prompt — keeps the existing UI intact.
+    let name = "";
     try{
-      const dataUrl = exportPNGDataURL();
+      const raw = window.prompt("Enter your name to add \"Predicted by: …\" on the exported image (leave blank to skip):", "");
+      name = (raw == null) ? "" : String(raw).trim();
+    }catch(e){ name = ""; }
+    return name.slice(0, 60); // safety cap to keep text on one line
+  }
+
+  document.getElementById("btn-download").addEventListener("click", async ()=>{
+    try{
+      const predictorName = askPredictorName();
+      const dataUrl = await exportPNGDataURL(predictorName);
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = "wc2026-knockout-prediction.png";
@@ -2472,7 +2550,8 @@ a{color:inherit;}
 
   document.getElementById("btn-share").addEventListener("click", async ()=>{
     try{
-      const dataUrl = exportPNGDataURL();
+      const predictorName = askPredictorName();
+      const dataUrl = await exportPNGDataURL(predictorName);
       shareImage.src = dataUrl;
       shareSave.href = dataUrl;
       shareOverlay.classList.add("show");
